@@ -1,0 +1,21 @@
+{
+  "name": "dsh-web-lan-access",
+  "version": "1.0.0",
+  "description": "LAN / remote access support for the DeepSeek Harness Web UI: polyfills crypto.randomUUID on insecure (plain-HTTP) origins so the frontend survives LAN or Tailscale IP direct links. Host-side index-tap plugin.",
+  "license": "MIT",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}
