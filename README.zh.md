@@ -18,11 +18,13 @@ Web UI 在启动关键路径上调用 `crypto.randomUUID()`（RPC id 生成、�
 
 ### 方式一：bundle 安装（推荐）
 
+从 npm 安装：
+
 ```sh
 dsh plugin --profile web add dsh-web-lan-access
 ```
 
-（尚未发布到 npm 时用仓库地址：
+（不走 npm / 本地开发时，可用仓库地址：
 
 ```sh
 dsh plugin --profile web add github:AcidGr/dsh-web-lan-access

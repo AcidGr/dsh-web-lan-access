@@ -17,5 +17,21 @@
     "bundle": {
       "patch": "./cordis.patch.yml"
     }
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AcidGr/dsh-web-lan-access.git"
+  },
+  "homepage": "https://github.com/AcidGr/dsh-web-lan-access",
+  "bugs": {
+    "url": "https://github.com/AcidGr/dsh-web-lan-access/issues"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "lan",
+    "remote-access",
+    "polyfill"
+  ]
 }

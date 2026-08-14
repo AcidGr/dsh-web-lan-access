@@ -18,11 +18,13 @@ A host-side plugin that uses the webserver's official index-tap extension point 
 
 ### Bundle install (recommended)
 
+Installed from npm:
+
 ```sh
 dsh plugin --profile web add dsh-web-lan-access
 ```
 
-(Not yet on npm — point pnpm at this repo until then:
+(No npm / local development — point pnpm at the repo instead:
 
 ```sh
 dsh plugin --profile web add github:AcidGr/dsh-web-lan-access
