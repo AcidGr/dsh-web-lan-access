@@ -1,5 +1,7 @@
 # dsh-web-lan-access
 
+[English](README.md) | **简体中文**
+
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Web UI 的局域网/远程访问支持插件。
 
 ## 问题
