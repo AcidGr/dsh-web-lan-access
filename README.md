@@ -51,24 +51,17 @@ ln -sfn ../../plugins/lan-access "$PROFILE/node_modules/@dsh-profile/lan-access"
 
 ## Usage
 
-1. **Bind all interfaces** so other devices can connect:
+The plugin is **self-contained**: its bundle patch sets the webserver bind host to `0.0.0.0` directly (the CLI flag `--host 0.0.0.0` is hard-rejected for safety on newer harness versions, but the webserver config still accepts it — so **no source changes and no `--host` flag are needed**; the CLI `--port` flag still works).
+
+1. **Install the plugin, then start normally** — without `--host`:
 
    ```sh
-   dsh --profile web --host 0.0.0.0 --port 3080
+   dsh --profile web --port 3080
    ```
 
    When bound to `0.0.0.0`, the harness automatically adds every local non-internal IPv4 to the `/api` trust fence (`resolveLanTrust`) — **LAN IP access needs no extra config**.
 
-   > **Newer harness versions** (master since ~0.1.1) hard-reject `--host 0.0.0.0` at the CLI for safety. The webserver schema still accepts `0.0.0.0`, so set it in the profile config instead of the flag — append to `cordis.patch.yml`:
-   >
-   > ```yaml
-   > - id: webserver
-   >   config:
-   >     host: '0.0.0.0'
-   >     port: !!js ctx.webStartup.port ?? 3080
-   > ```
-   >
-   > and start without `--host`. Alternatively keep `127.0.0.1` and forward a port (socat / rinetd / Tailscale serve), adding the forwarded address to `trustedHosts` manually.
+   > If you prefer NOT to let the plugin take over the bind host (e.g. you want loopback + a port forward), keep the `webserver` row override out of your tree and instead forward a port (socat / rinetd / Tailscale serve) from `127.0.0.1:3080`, adding the forwarded address to `trustedHosts` manually.
 
 2. **Domains / remote (e.g. Tailscale)** — add your own authorities to `trustedHosts`:
 
@@ -82,6 +75,10 @@ ln -sfn ../../plugins/lan-access "$PROFILE/node_modules/@dsh-profile/lan-access"
    ```
 
    ⚠️ The fence compares the `Host` header **literally**: a MagicDNS short name (`http://myhost:3080`) is *not* the full domain — list the short name on its own line, or every `/api` call returns 403 (page shell loads, sessions/models absent).
+
+## Known limitation: privileged API methods
+
+On unmodified harness builds, a small set of sensitive API methods (`settings.*`, `credentials.*`, `llm.discoverModels`) is **pinned to loopback** regardless of `trustedHosts` (`isTrustedApiRequest(request, [])` in `packages/client/connection/src/index.ts`). From a remote origin those calls return 403: chat/sessions/models still work, but the **Settings pages (including the plugin-config cards) and credentials UI show empty/errors**. The polyfill cannot change that — it is a product-side policy. A one-line upstream change (`isTrustedApiRequest(request, trustedHosts)`) makes them follow the deployment's trusted hosts; until then, edit that line locally or manage those settings from `http://127.0.0.1:3080`.
 
 ## Verify
 

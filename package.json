@@ -1,7 +1,7 @@
 {
   "name": "dsh-web-lan-access",
-  "version": "1.0.0",
-  "description": "LAN / remote access support for the DeepSeek Harness Web UI: polyfills crypto.randomUUID on insecure (plain-HTTP) origins so the frontend survives LAN or Tailscale IP direct links. Host-side index-tap plugin.",
+  "version": "1.1.0",
+  "description": "LAN / remote access support for the DeepSeek Harness Web UI: self-contained 0.0.0.0 binding + crypto.randomUUID polyfill on plain-HTTP origins.",
   "license": "MIT",
   "type": "module",
   "main": "lib/index.js",

@@ -1,6 +1,18 @@
-# Bundle patch: mount the plugin row. The row name must match this package
-# name; remove this insert block (or the bundle from the profile bundles
-# list) to restore the original page exactly.
+# Bundle patch: mount the plugin row and take over the webserver bind host.
+#
+# The CLI rejects `--host 0.0.0.0` for safety on newer harness versions, but
+# the webserver schema still accepts the value, so this layer sets the bind
+# host directly in the composed config — the plugin becomes self-contained:
+# no source changes and no `--host` flag needed. The CLI port flag still
+# works through the `webStartup` expression.
+#
+# Remove this bundle (or just the insert below) to restore stock behavior:
+# the webserver row override goes away with it because patches are layered.
+- id: webserver
+  config:
+    host: '0.0.0.0'
+    port: !!js ctx.webStartup.port ?? 3080
+
 - insert:
     - id: lan-access
       name: 'dsh-web-lan-access'

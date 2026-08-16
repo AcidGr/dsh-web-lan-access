@@ -51,24 +51,17 @@ ln -sfn ../../plugins/lan-access "$PROFILE/node_modules/@dsh-profile/lan-access"
 
 ## 使用
 
-1. **绑定所有网卡**，让其他设备可连接：
+插件是**自包含**的：它的 bundle patch 直接把 webserver 的绑定 host 设为 `0.0.0.0`（新版 harness 出于安全**硬性拒绝**命令行 `--host 0.0.0.0`，但 webserver 配置仍接受该值——所以**无需改源码、无需 `--host` 参数**；`--port` 参数照常可用）。
+
+1. **安装插件后正常启动即可**（不带 `--host`）：
 
    ```sh
-   dsh --profile web --host 0.0.0.0 --port 3080
+   dsh --profile web --port 3080
    ```
 
    绑定 `0.0.0.0` 后，harness 会自动把本机所有非内部 IPv4 加入 `/api` 信任围栏（`resolveLanTrust`）——**局域网 IP 访问零额外配置**。
 
-   > **新版 harness 兼容性**（master 起约 0.1.1）：CLI 出于安全考虑**硬性拒绝** `--host 0.0.0.0`。但 webserver 的 schema 仍允许 `0.0.0.0`，所以改为在 profile 配置里写死 host（追加到 `cordis.patch.yml`）：
-   >
-   > ```yaml
-   > - id: webserver
-   >   config:
-   >     host: '0.0.0.0'
-   >     port: !!js ctx.webStartup.port ?? 3080
-   > ```
-   >
-   > 然后不带 `--host` 启动即可。或者保持 `127.0.0.1`，用 socat / rinetd / Tailscale serve 转发端口，并把转发入口地址手动加入 `trustedHosts`。
+   > 如果你不想让插件接管绑定（例如想保持 127.0.0.1 + 端口转发），把 `webserver` 行覆盖从组合里去掉，改用 socat / rinetd / Tailscale serve 从 `127.0.0.1:3080` 转发端口，并把转发入口地址手动加入 `trustedHosts`。
 
 2. **域名/远程（如 Tailscale）**——把**你自己的**入口加进 `trustedHosts`：
 
@@ -82,6 +75,10 @@ ln -sfn ../../plugins/lan-access "$PROFILE/node_modules/@dsh-profile/lan-access"
    ```
 
    ⚠️ 围栏**逐字比对** Host 头：MagicDNS 短名（`http://myhost:3080`）≠ 完整域名，短名必须单独列一行，否则所有 `/api` 请求返回 403（页面壳能开、会话/模型全无）。
+
+## 已知限制：特权 API 方法
+
+未修改的 harness 构建里，一小部分敏感 API 方法（`settings.*`、`credentials.*`、`llm.discoverModels`）**被钉死在仅回环**（`packages/client/connection/src/index.ts` 里的 `isTrustedApiRequest(request, [])`），与 `trustedHosts` 无关。远程来源调用它们会得到 403：聊天/会话/模型仍正常，但**设置页（含插件配置卡片）和凭据界面显示为空/报错**。polyfill 无法改变这一点——这是产品侧的策略。上游一行改动（`isTrustedApiRequest(request, trustedHosts)`）即可让它们跟随部署的 trusted hosts；在那之前，要么本地改这一行，要么这些设置从 `http://127.0.0.1:3080` 上操作。
 
 ## 验证
 
