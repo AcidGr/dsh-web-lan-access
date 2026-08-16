@@ -59,6 +59,17 @@ ln -sfn ../../plugins/lan-access "$PROFILE/node_modules/@dsh-profile/lan-access"
 
    绑定 `0.0.0.0` 后，harness 会自动把本机所有非内部 IPv4 加入 `/api` 信任围栏（`resolveLanTrust`）——**局域网 IP 访问零额外配置**。
 
+   > **新版 harness 兼容性**（master 起约 0.1.1）：CLI 出于安全考虑**硬性拒绝** `--host 0.0.0.0`。但 webserver 的 schema 仍允许 `0.0.0.0`，所以改为在 profile 配置里写死 host（追加到 `cordis.patch.yml`）：
+   >
+   > ```yaml
+   > - id: webserver
+   >   config:
+   >     host: '0.0.0.0'
+   >     port: !!js ctx.webStartup.port ?? 3080
+   > ```
+   >
+   > 然后不带 `--host` 启动即可。或者保持 `127.0.0.1`，用 socat / rinetd / Tailscale serve 转发端口，并把转发入口地址手动加入 `trustedHosts`。
+
 2. **域名/远程（如 Tailscale）**——把**你自己的**入口加进 `trustedHosts`：
 
    ```yaml

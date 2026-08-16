@@ -59,6 +59,17 @@ ln -sfn ../../plugins/lan-access "$PROFILE/node_modules/@dsh-profile/lan-access"
 
    When bound to `0.0.0.0`, the harness automatically adds every local non-internal IPv4 to the `/api` trust fence (`resolveLanTrust`) — **LAN IP access needs no extra config**.
 
+   > **Newer harness versions** (master since ~0.1.1) hard-reject `--host 0.0.0.0` at the CLI for safety. The webserver schema still accepts `0.0.0.0`, so set it in the profile config instead of the flag — append to `cordis.patch.yml`:
+   >
+   > ```yaml
+   > - id: webserver
+   >   config:
+   >     host: '0.0.0.0'
+   >     port: !!js ctx.webStartup.port ?? 3080
+   > ```
+   >
+   > and start without `--host`. Alternatively keep `127.0.0.1` and forward a port (socat / rinetd / Tailscale serve), adding the forwarded address to `trustedHosts` manually.
+
 2. **Domains / remote (e.g. Tailscale)** — add your own authorities to `trustedHosts`:
 
    ```yaml
