@@ -17,8 +17,12 @@
 #    the remote interface up, `http://<lan-ip>:3080` and
 #    `http://<tailscale-ip>:3080` work with zero extra config.
 #
-#    NOTE: the expression is a single YAML scalar, so it must stay on one line
-#    (quoted); `process.getBuiltinModule` is available on Node 22.3+.
+#    NOTES:
+#    - The expression is a single YAML scalar, so it must stay on one line
+#      (quoted); `process.getBuiltinModule` is available on Node 22.3+.
+#    - Loader `<expr> is evaluated inside `with (ctx)`, which can shadow plain
+#      globals (a ctx field named `Object` etc. breaks a bare `Object`), so
+#      every global the expression touches goes through `globalThis`.
 #
 # Remove this bundle (or just the blocks below) to restore stock behavior.
 - id: webserver
@@ -28,7 +32,7 @@
 
 - id: connection
   config:
-    trustedHosts: !!js '[...(ctx.webRuntime?.trustedHosts ?? []), ...(() => { const os = globalThis.process?.getBuiltinModule?.("os"); return os ? Object.values(os.networkInterfaces()).flat().filter(i => i && i.family === "IPv4" && !i.internal).map(i => i.address) : []; })()]'
+    trustedHosts: !!js '[...(ctx.webRuntime?.trustedHosts ?? []), ...(() => { const os = globalThis.process?.getBuiltinModule?.("os"); return os ? globalThis.Object.values(os.networkInterfaces()).flat().filter(i => i && i.family === "IPv4" && !i.internal).map(i => i.address) : []; })()]'
 
 - insert:
     - id: lan-access
