@@ -1,7 +1,7 @@
 {
   "name": "dsh-web-lan-access",
-  "version": "1.1.0",
-  "description": "LAN / remote access support for the DeepSeek Harness Web UI: self-contained 0.0.0.0 binding + crypto.randomUUID polyfill on plain-HTTP origins.",
+  "version": "1.2.0",
+  "description": "LAN / remote access support for the DeepSeek Harness Web UI: self-contained 0.0.0.0 binding, automatic /api trust-fence widening (LAN + Tailscale 100.x + VPN IPv4), and a crypto.randomUUID polyfill on plain-HTTP origins.",
   "license": "MIT",
   "type": "module",
   "main": "lib/index.js",

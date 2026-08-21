@@ -1,17 +1,34 @@
-# Bundle patch: mount the plugin row and take over the webserver bind host.
+# Bundle patch: mount the plugin row, take over the webserver bind host, and
+# widen the /api browser-trust fence to every non-loopback IPv4 the host has.
 #
-# The CLI rejects `--host 0.0.0.0` for safety on newer harness versions, but
-# the webserver schema still accepts the value, so this layer sets the bind
-# host directly in the composed config — the plugin becomes self-contained:
-# no source changes and no `--host` flag needed. The CLI port flag still
-# works through the `webStartup` expression.
+# 1) The CLI rejects `--host 0.0.0.0` for safety on newer harness versions,
+#    but the webserver schema still accepts the value, so this layer sets the
+#    bind host directly in the composed config — the plugin is self-contained:
+#    no source changes and no `--host` flag needed. The CLI `--port` flag still
+#    works through the `webStartup` expression.
 #
-# Remove this bundle (or just the insert below) to restore stock behavior:
-# the webserver row override goes away with it because patches are layered.
+# 2) `resolveLanTrust` only auto-trusts LAN IPs while the server binds
+#    0.0.0.0 *at startup*, and it snapshots the interfaces exactly once at
+#    boot — so a Tailscale / VPN interface that comes up later, or a
+#    non-0.0.0.0 bind, still leaves every `/api` call 403 from those IPs.
+#    This override re-derives the fence list on the `connection` row from all
+#    current non-internal IPv4 addresses (LAN, Tailscale 100.x, VPN) and
+#    merges in whatever `webRuntime` already computed, so after a restart with
+#    the remote interface up, `http://<lan-ip>:3080` and
+#    `http://<tailscale-ip>:3080` work with zero extra config.
+#
+#    NOTE: the expression is a single YAML scalar, so it must stay on one line
+#    (quoted); `process.getBuiltinModule` is available on Node 22.3+.
+#
+# Remove this bundle (or just the blocks below) to restore stock behavior.
 - id: webserver
   config:
     host: '0.0.0.0'
     port: !!js ctx.webStartup.port ?? 3080
+
+- id: connection
+  config:
+    trustedHosts: !!js '[...(ctx.webRuntime?.trustedHosts ?? []), ...(() => { const os = globalThis.process?.getBuiltinModule?.("os"); return os ? Object.values(os.networkInterfaces()).flat().filter(i => i && i.family === "IPv4" && !i.internal).map(i => i.address) : []; })()]'
 
 - insert:
     - id: lan-access

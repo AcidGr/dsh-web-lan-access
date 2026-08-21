@@ -51,7 +51,7 @@ ln -sfn ../../plugins/lan-access "$PROFILE/node_modules/@dsh-profile/lan-access"
 
 ## 使用
 
-插件是**自包含**的：它的 bundle patch 直接把 webserver 的绑定 host 设为 `0.0.0.0`（新版 harness 出于安全**硬性拒绝**命令行 `--host 0.0.0.0`，但 webserver 配置仍接受该值——所以**无需改源码、无需 `--host` 参数**；`--port` 参数照常可用）。
+插件是**自包含**的：它的 bundle patch 直接把 webserver 的绑定 host 设为 `0.0.0.0`（新版 harness 出于安全**硬性拒绝**命令行 `--host 0.0.0.0`，但 webserver 配置仍接受该值——所以**无需改源码、无需 `--host` 参数**；`--port` 参数照常可用）。它同时会自动扩大 `/api` 信任围栏。
 
 1. **安装插件后正常启动即可**（不带 `--host`）：
 
@@ -59,22 +59,21 @@ ln -sfn ../../plugins/lan-access "$PROFILE/node_modules/@dsh-profile/lan-access"
    dsh --profile web --port 3080
    ```
 
-   绑定 `0.0.0.0` 后，harness 会自动把本机所有非内部 IPv4 加入 `/api` 信任围栏（`resolveLanTrust`）——**局域网 IP 访问零额外配置**。
+   bundle patch 会从本机**当前所有非内部 IPv4**（局域网 `192.168.x`、**Tailscale `100.x`**、VPN 接口）重新推导 `/api` 信任围栏，并合并 `resolveLanTrust` 已有的结果。只要远程接口在 `dsh web` 启动时已就绪（Tailscale 通常开机自启、先于它），**局域网 / Tailscale IP 访问零额外配置**：打开 `http://<服务器IP>:3080` 或 `http://<tailscaleIP>:3080` 即可正常加载会话和模型。
 
    > 如果你不想让插件接管绑定（例如想保持 127.0.0.1 + 端口转发），把 `webserver` 行覆盖从组合里去掉，改用 socat / rinetd / Tailscale serve 从 `127.0.0.1:3080` 转发端口，并把转发入口地址手动加入 `trustedHosts`。
 
-2. **域名/远程（如 Tailscale）**——把**你自己的**入口加进 `trustedHosts`：
+2. **MagicDNS 主机名（如 `xxx.tailXXXX.ts.net`）**——围栏只能自动发现 IP 字面量，无法发现主机名，所以如果你想像按 IP 那样用名字访问，需手动加入自己的域名：
 
    ```yaml
-   - id: web-runtime
+   - id: connection
      config:
        trustedHosts:
          - <短名>            # 如 myhost —— 必须单独列出！
          - <名称>.tailXXXX.ts.net  # 完整域名
-         - 100.x.x.x         # tailnet IP
    ```
 
-   ⚠️ 围栏**逐字比对** Host 头：MagicDNS 短名（`http://myhost:3080`）≠ 完整域名，短名必须单独列一行，否则所有 `/api` 请求返回 403（页面壳能开、会话/模型全无）。
+   ⚠️ 围栏**逐字比对** Host 头：MagicDNS 短名（`http://myhost:3080`）≠ 完整域名，短名必须单独列一行，否则所有 `/api` 请求返回 403（页面壳能开、会话/模型全无）。（Tailscale 的 `100.x.x.x` IP 已自动覆盖——这段仅用于名字访问。）
 
 ## 已知限制：特权 API 方法
 
