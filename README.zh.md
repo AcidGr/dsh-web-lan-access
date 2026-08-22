@@ -63,17 +63,21 @@ ln -sfn ../../plugins/lan-access "$PROFILE/node_modules/@dsh-profile/lan-access"
 
    > 如果你不想让插件接管绑定（例如想保持 127.0.0.1 + 端口转发），把 `webserver` 行覆盖从组合里去掉，改用 socat / rinetd / Tailscale serve 从 `127.0.0.1:3080` 转发端口，并把转发入口地址手动加入 `trustedHosts`。
 
-2. **MagicDNS 主机名（如 `xxx.tailXXXX.ts.net`）**——围栏只能自动发现 IP 字面量，无法发现主机名，所以如果你想像按 IP 那样用名字访问，需手动加入自己的域名：
+2. **MagicDNS 主机名（如 `xxx.tailXXXX.ts.net`）**——围栏只能自动发现 IP 字面量，无法发现主机名，所以如果你想像按 IP 那样用名字访问，需手动声明。改 **`web-runtime` 行**：它的 `trustedHosts` 是喂给围栏计算的输入（`resolveLanTrust` 会合并它们），你的条目叠加在自动发现的 IP 之上，是追加语义：
 
    ```yaml
-   - id: connection
+   - id: web-runtime
      config:
        trustedHosts:
          - <短名>            # 如 myhost —— 必须单独列出！
          - <名称>.tailXXXX.ts.net  # 完整域名
    ```
 
-   ⚠️ 围栏**逐字比对** Host 头：MagicDNS 短名（`http://myhost:3080`）≠ 完整域名，短名必须单独列一行，否则所有 `/api` 请求返回 403（页面壳能开、会话/模型全无）。（Tailscale 的 `100.x.x.x` IP 已自动覆盖——这段仅用于名字访问。）
+   或者不改文件，直接用可重复的 CLI 参数（同一条注入路径）：`dsh --profile web --trusted-host myhost --trusted-host myhost.tailXXXX.ts.net`。两种方式二选一——静态列表会替换该行的默认表达式，不会再与 `--trusted-host` 合并。
+
+   ⚠️ 围栏**逐字比对** Host 头：MagicDNS 短名（`http://myhost:3080`）≠ 完整域名，短名必须单独列一行，否则所有 `/api` 请求返回 403（页面壳能开、会话/模型全无）。Tailscale / 局域网 IP 字面量无需在此列出——已自动覆盖。
+
+   > ⚠️ 不要把这段改指向 `connection` 行：patch 层按应用顺序做**整个 key 替换**（各 bundle 层先应用、本文件的层最后应用），直接往 `connection.config.trustedHosts` 写普通数组会静默替换掉 bundle 的动态围栏表达式——名字能访问了，但自动推导的局域网/Tailscale IP 信任就没了。确实需要动 `connection` 时，请照抄插件 bundle 补丁里的完整拼接表达式再追加自己的字面量，不要写纯列表。
 
 ## 已知限制：特权 API 方法
 
