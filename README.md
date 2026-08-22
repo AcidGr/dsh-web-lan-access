@@ -63,17 +63,21 @@ The plugin is **self-contained**: its bundle patch sets the webserver bind host 
 
    > If you prefer NOT to let the plugin take over the bind host (e.g. you want loopback + a port forward), keep the `webserver` row override out of your tree and instead forward a port (socat / rinetd / Tailscale serve) from `127.0.0.1:3080`, adding the forwarded address to `trustedHosts` manually.
 
-2. **MagicDNS hostnames (e.g. `xxx.tailXXXX.ts.net`)** — the fence can't discover hostnames, only IP literals, so add your own domains if you want to browse by name instead of IP:
+2. **MagicDNS hostnames (e.g. `xxx.tailXXXX.ts.net`)** — the fence can't discover hostnames, only IP literals, so add your own names if you want to browse by name instead of IP. Patch the **`web-runtime` row**, whose `trustedHosts` feed *into* the fence computation (`resolveLanTrust` merges them), so your entries stack on top of the auto-discovered IPs:
 
    ```yaml
-   - id: connection
+   - id: web-runtime
      config:
        trustedHosts:
          - <short-name>            # e.g. myhost — MUST be listed separately!
          - <name>.tailXXXX.ts.net  # full domain
    ```
 
-   ⚠️ The fence compares the `Host` header **literally**: a MagicDNS short name (`http://myhost:3080`) is *not* the full domain — list the short name on its own line, or every `/api` call returns 403 (page shell loads, sessions/models absent). (Tailscale IPs like `100.x.x.x` are already covered automatically — this block is only for name-based access.)
+   Or skip file editing entirely with the repeatable CLI flag (same injection path): `dsh --profile web --trusted-host myhost --trusted-host myhost.tailXXXX.ts.net`. Use one mechanism or the other — a static list replaces the row's default expression, so it will not merge with `--trusted-host`.
+
+   ⚠️ The fence compares the `Host` header **literally**: a MagicDNS short name (`http://myhost:3080`) is *not* the full domain — list the short name on its own line, or every `/api` call returns 403 (page shell loads, sessions/models absent). Tailscale / LAN IP literals need no entry here — they stay covered automatically.
+
+   > ⚠️ Do not retarget this block at the `connection` row: patch layers compose by whole-key replacement in application order (bundle layers first, then your profile's `cordis.patch.yml`), so a plain literal array on `connection.config.trustedHosts` would silently replace the bundle's dynamic fence expression — names would work, but the auto-derived LAN/Tailscale IP trust would vanish. If you truly need `connection`, copy the full concatenation expression from the plugin's bundle patch and append your literals; never write a plain list there.
 
 ## Known limitation: privileged API methods
 
