@@ -8,12 +8,19 @@
 
 Web UI 在启动关键路径上调用 `crypto.randomUUID()`（RPC id 生成、消息 id、草稿附件）。该 Web API **只在安全上下文存在**（HTTPS，或 `http://localhost` / `http://127.0.0.1`）。当界面通过纯 HTTP 从非回环地址（局域网 IP、Tailscale IP、主机名）提供服务时，`crypto.randomUUID` 是 `undefined`，所有 RPC 抛错，**会话和模型完全无法显示**。
 
+当前 DSH 客户端还会根据浏览器主机名选择宿主设置：即使浏览器认证成功，非回环页面仍只分配内存设置。因此，在其他功能正常的 trusted-host 部署中，模型和插件设置页仍不可用。
+
 ## 原理
 
-宿主端插件使用 webserver 官方扩展点（`webServer.tapIndex`），在每次返回的 index.html 的 `<head>` 之后注入一段 polyfill（基于 `crypto.getRandomValues` 的 RFC 4122 v4 实现——该 API 在非安全上下文**可用**），位置在启动清单和 shell 入口之前。安全上下文下 polyfill 为空操作。
+宿主端插件使用 webserver 官方扩展点（`webServer.tapIndex`），在每次返回的 index.html 的 `<head>` 之后、启动清单和 shell 入口之前注入一段 bootstrap。它会：
+
+- 提供普通 HTTP transport 并携带 DSH 的 `ownsHost` 部署信号，让受信任远程页面可以使用通过认证的宿主设置；
+- 用 `crypto.getRandomValues`（非安全上下文仍**可用**）补充 RFC 4122 v4 `crypto.randomUUID`。
+
+如果其他 shell 已提供 transport，bootstrap 不会替换它；安全上下文下 UUID polyfill 为空操作。
 
 - 不修改产品源码，完全可逆
-- 与版本无关（只转换下发的 index.html）
+- 使用 DSH 现有的 index-tap 和客户端 transport 扩展点
 - 跨平台（Linux / macOS / Windows / Android）
 
 ## 安装
@@ -79,9 +86,11 @@ ln -sfn ../../plugins/lan-access "$PROFILE/node_modules/@dsh-profile/lan-access"
 
    > ⚠️ 不要把这段改指向 `connection` 行：patch 层按应用顺序做**整个 key 替换**（各 bundle 层先应用、本文件的层最后应用），直接往 `connection.config.trustedHosts` 写普通数组会静默替换掉 bundle 的动态围栏表达式——名字能访问了，但自动推导的局域网/Tailscale IP 信任就没了。确实需要动 `connection` 时，请照抄插件 bundle 补丁里的完整拼接表达式再追加自己的字面量，不要写纯列表。
 
-## 已知限制：特权 API 方法
+## 宿主所有权范围
 
-未修改的 harness 构建里，一小部分敏感 API 方法（`settings.*`、`credentials.*`、`llm.discoverModels`）**被钉死在仅回环**（`packages/client/connection/src/index.ts` 里的 `isTrustedApiRequest(request, [])`），与 `trustedHosts` 无关。远程来源调用它们会得到 403：聊天/会话/模型仍正常，但**设置页（含插件配置卡片）和凭据界面显示为空/报错**。polyfill 无法改变这一点——这是产品侧的策略。上游一行改动（`isTrustedApiRequest(request, trustedHosts)`）即可让它们跟随部署的 trusted hosts；在那之前，要么本地改这一行，要么这些设置从 `http://127.0.0.1:3080` 上操作。
+该 transport 信号会启用 DSH 当前归入“拥有宿主”的全部客户端界面，并非只启用模型页。其中包括宿主持久化设置，以及打开生成文件等宿主原生操作。仅应在已认证的远程浏览器确实用于操作 agent 主机时使用本插件。DSH 的 Host/Origin 围栏和浏览器认证仍然生效；此信号改变的是客户端能力投影，不是请求认证。
+
+旧版 harness 如果仍在服务端把特权方法限制为仅回环，这些方法仍会返回 403。客户端 bootstrap 不会削弱服务端围栏。
 
 ## 验证
 
@@ -93,7 +102,7 @@ curl http://127.0.0.1:3080/ | grep lan-access-polyfill   # 必须有输出
 
 ## 安全警告
 
-绑定 `0.0.0.0` 后，同一网络内**任何设备**都能无鉴权操作该 agent（`/api` 只是来源围栏，不是登录）。公网 IP 的服务器等于向整个互联网开放。请只在可信网络使用；用防火墙限制网段（如 `ufw allow from 192.168.0.0/16`），或走 Tailscale / 带鉴权的反向代理。走 TLS 反代的话连这个 polyfill 都不需要。
+绑定 `0.0.0.0` 会把 DSH 认证入口暴露到所有可达接口。`trustedHosts` 是 Origin/Host 围栏而非身份认证；当前 DSH 构建会另外认证浏览器。请只在可信网络使用；用防火墙限制网段（如 `ufw allow from 192.168.0.0/16`），或走 Tailscale / 带鉴权的反向代理。TLS 反代可免除 UUID polyfill，但远程宿主设置 bootstrap 仍然需要。
 
 ## 回滚
 
