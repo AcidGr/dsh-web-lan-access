@@ -9,12 +9,19 @@ LAN / remote access support for the [DeepSeek Harness](https://github.com/deepse
 
 The Web UI calls `crypto.randomUUID()` in boot-critical paths (RPC id minting, message ids, draft attachments). That Web API exists **only in secure contexts** (HTTPS, or `http://localhost` / `http://127.0.0.1`). When the UI is served over plain HTTP from a non-loopback address — a LAN IP, a Tailscale IP, or a hostname — `crypto.randomUUID` is `undefined`, every RPC throws, and **sessions and models never render**.
 
+Current DSH clients also select Host-backed settings from the browser hostname: a non-loopback page is assigned memory-only settings even after browser authentication succeeds. The Models and plugin settings pages therefore remain unavailable on an otherwise working trusted-host deployment.
+
 ## The fix
 
-A host-side plugin that uses the webserver's official index-tap extension point (`webServer.tapIndex`) to inject a small polyfill (RFC 4122 v4 built on `crypto.getRandomValues`, which **is** available on insecure origins) as the first script in `<head>`, before the boot manifest and the shell entry. On secure origins the polyfill is a no-op.
+A host-side plugin that uses the webserver's official index-tap extension point (`webServer.tapIndex`) to inject a small bootstrap as the first script in `<head>`, before the boot manifest and shell entry. The bootstrap:
+
+- supplies an ordinary HTTP transport carrying DSH's `ownsHost` deployment signal, enabling authenticated Host settings from the trusted remote page;
+- polyfills `crypto.randomUUID` with an RFC 4122 v4 implementation built on `crypto.getRandomValues`, which **is** available on insecure origins.
+
+The bootstrap leaves a transport supplied by another shell untouched, and the UUID polyfill is a no-op on secure origins.
 
 - No product source modified; fully reversible
-- Version-independent (it only transforms the served `index.html`)
+- Uses DSH's existing index-tap and client-transport extension points
 - Platform-independent (Linux / macOS / Windows / Android)
 
 ## Install
@@ -79,9 +86,11 @@ The plugin is **self-contained**: its bundle patch sets the webserver bind host 
 
    > ⚠️ Do not retarget this block at the `connection` row: patch layers compose by whole-key replacement in application order (bundle layers first, then your profile's `cordis.patch.yml`), so a plain literal array on `connection.config.trustedHosts` would silently replace the bundle's dynamic fence expression — names would work, but the auto-derived LAN/Tailscale IP trust would vanish. If you truly need `connection`, copy the full concatenation expression from the plugin's bundle patch and append your literals; never write a plain list there.
 
-## Known limitation: privileged API methods
+## Host ownership scope
 
-On unmodified harness builds, a small set of sensitive API methods (`settings.*`, `credentials.*`, `llm.discoverModels`) is **pinned to loopback** regardless of `trustedHosts` (`isTrustedApiRequest(request, [])` in `packages/client/connection/src/index.ts`). From a remote origin those calls return 403: chat/sessions/models still work, but the **Settings pages (including the plugin-config cards) and credentials UI show empty/errors**. The polyfill cannot change that — it is a product-side policy. A one-line upstream change (`isTrustedApiRequest(request, trustedHosts)`) makes them follow the deployment's trusted hosts; until then, edit that line locally or manage those settings from `http://127.0.0.1:3080`.
+The transport signal enables every client surface DSH currently associates with owning the Host, not only Models. That includes Host-backed settings and native Host actions such as opening a produced file. Use this plugin only when the authenticated remote browser is meant to operate the agent machine. DSH's Host/Origin fence and browser authentication remain in force; this signal changes the client's capability projection, not request authentication.
+
+Older harness builds that pin privileged methods to loopback on the server will continue returning 403 for those methods. This client bootstrap does not weaken that server-side fence.
 
 ## Verify
 
@@ -93,7 +102,7 @@ Then open `http://<server-ip>:3080` from another device — sessions and models 
 
 ## Security warning
 
-Binding `0.0.0.0` makes the agent reachable without authentication by **anyone** on the same network (`/api` is an origin fence, not a login). On a server with a public IP this means the whole internet. Use only on trusted networks, restrict with a firewall (e.g. `ufw allow from 192.168.0.0/16`), or expose through Tailscale / an authenticated reverse proxy instead. A TLS reverse proxy also removes the need for this polyfill entirely.
+Binding `0.0.0.0` exposes the DSH authentication surface to every reachable interface. `trustedHosts` is an Origin/Host fence, not identity; current DSH builds separately authenticate the browser. Use only on trusted networks, restrict with a firewall (e.g. `ufw allow from 192.168.0.0/16`), or expose through Tailscale or an authenticated reverse proxy. A TLS reverse proxy removes the need for the UUID polyfill but not the remote Host-settings bootstrap.
 
 ## Rollback
 
