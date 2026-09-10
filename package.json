@@ -1,6 +1,6 @@
 {
   "name": "dsh-web-lan-access",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "description": "LAN / remote access support for the DeepSeek Harness Web UI: self-contained 0.0.0.0 binding, remote Host settings, automatic /api trust-fence widening, and an insecure-origin randomUUID polyfill.",
   "license": "MIT",
   "type": "module",
@@ -16,9 +16,27 @@
   "scripts": {
     "test": "node --test"
   },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "compatibility": {
+      "dsh": ">=0.1.0",
+      "dshReleases": {
+        "0.1.2-alpha.2": "compatible",
+        "0.1.2-alpha.3": "compatible",
+        "0.1.2-alpha.4": "compatible",
+        "0.1.2-alpha.5": "compatible",
+        "0.1.2-rc.1": "compatible",
+        "0.1.3-alpha.1": "compatible",
+        "0.1.3-alpha.2": "compatible",
+        "0.1.5-alpha.1": "compatible",
+        "0.1.5-alpha.2": "compatible",
+        "0.1.5-rc.1": "compatible"
+      }
     }
   },
   "repository": {
