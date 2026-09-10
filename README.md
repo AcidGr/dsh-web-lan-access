@@ -26,7 +26,14 @@ The bootstrap leaves a transport supplied by another shell untouched, and the UU
 
 ## Install
 
-### Bundle install (recommended)
+### Method 1: Ask your DSH Agent (Easiest 🤖)
+
+Send this repo URL directly to your DSH chat with the instruction:
+> "Install this plugin for me: https://github.com/AcidGr/dsh-web-lan-access"
+
+Your DSH Agent will automatically install the package and configure it in the background.
+
+### Method 2: Bundle install via CLI (Recommended)
 
 Installed from npm:
 
@@ -43,7 +50,7 @@ dsh plugin --profile web add github:AcidGr/dsh-web-lan-access
 
 Restart `dsh web`, then hard-refresh the browser.
 
-### Manual install (no pnpm / offline)
+### Method 3: Manual install (no pnpm / offline)
 
 ```sh
 PROFILE="$DSH_HOME/profiles/web"                 # adjust DSH_HOME and profile name

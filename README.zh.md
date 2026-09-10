@@ -25,9 +25,16 @@ Web UI 在启动关键路径上调用 `crypto.randomUUID()`（RPC id 生成、�
 
 ## 安装
 
-### 方式一：bundle 安装（推荐）
+### 方式一：直接发给你的 DSH（最省心 🤖）
 
-从 npm 安装：
+直接在 DSH 网页对话框中把本仓库链接发给 AI，并附上指令：
+> “帮我安装这个插件：https://github.com/AcidGr/dsh-web-lan-access”
+
+DSH Agent 会自动在后台执行安装命令并完成配置。
+
+### 方式二：CLI 命令行安装（推荐）
+
+直接从 npm 安装：
 
 ```sh
 dsh plugin --profile web add dsh-web-lan-access
@@ -43,7 +50,7 @@ dsh plugin --profile web add github:AcidGr/dsh-web-lan-access
 
 重启 `dsh web`，浏览器硬刷新。
 
-### 方式二：手动安装（无 pnpm / 离线）
+### 方式三：手动安装（无 pnpm / 离线）
 
 ```sh
 PROFILE="$DSH_HOME/profiles/web"                 # 按实际修改 DSH_HOME 和 profile 名
