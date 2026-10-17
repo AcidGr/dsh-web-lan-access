@@ -1,41 +1,63 @@
-# Bundle patch: mount the plugin row, take over the webserver bind host, and
-# widen the /api browser-trust fence to every non-loopback IPv4 the host has.
+# Bundle patch: bind every interface, widen the /api trust fence, and mount the
+# remote-Host bootstrap.
 #
-# 1) The CLI rejects `--host 0.0.0.0` for safety on newer harness versions,
-#    but the webserver schema still accepts the value, so this layer sets the
-#    bind host directly in the composed config — the plugin is self-contained:
-#    no source changes and no `--host` flag needed. The CLI `--port` flag still
-#    works through the `webStartup` expression.
+# ## Why the shipped `webserver` row is disabled instead of re-configured
 #
-# 2) `resolveLanTrust` only auto-trusts LAN IPs while the server binds
-#    0.0.0.0 *at startup*, and it snapshots the interfaces exactly once at
-#    boot — so a Tailscale / VPN interface that comes up later, or a
-#    non-0.0.0.0 bind, still leaves every `/api` call 403 from those IPs.
-#    This override re-derives the fence list on the `connection` row from all
-#    current non-internal IPv4 addresses (LAN, Tailscale 100.x, VPN) and
-#    merges in whatever `webRuntime` already computed, so after a restart with
-#    the remote interface up, `http://<lan-ip>:3080` and
-#    `http://<tailscale-ip>:3080` work with zero extra config.
+# From dsh 0.2.1 the shipped webserver rejects `0.0.0.0` / `::` in its config
+# schema:
 #
-#    NOTES:
-#    - The expression is a single YAML scalar, so it must stay on one line
-#      (quoted); `process.getBuiltinModule` is available on Node 22.3+.
-#    - Loader `<expr> is evaluated inside `with (ctx)`, which can shadow plain
-#      globals (a ctx field named `Object` etc. breaks a bare `Object`), so
-#      every global the expression touches goes through `globalThis`.
+#   webserver: host "0.0.0.0" is an unspecified (wildcard) address, which is
+#   not supported: binding every interface would expose remote code execution
+#   to the network
 #
-# Remove this bundle (or just the blocks below) to restore stock behavior.
+# Writing `host: '0.0.0.0'` into that row (what this bundle did through 1.3.x)
+# therefore fails validation and aborts the boot. A patch cannot retarget the
+# row's `name` either — app-boot skips a patch whose `name` differs from the
+# target's — so the only route to an all-interface listener is to disable the
+# shipped row and mount `lib/webserver.js`, a subclass that rescues exactly the
+# wildcard rejection and leaves every other rule intact.
+#
+# The replacement row injects `webStartup`, so `--port`, `--host` and the TLS
+# flags still reach it exactly as they reached the shipped row.
+#
+# ## Why `trustedHosts` is derived here
+#
+# `isBindAddressAuthority` auto-trusts the listener's own bind literal, which is
+# what makes `--host 100.78.28.76` work with no extra config. A wildcard bind
+# has no such literal — `0.0.0.0` matches no request Host — so without an
+# explicit list every remote `/api` call returns 403 while the page shell still
+# loads. This layer therefore publishes every non-internal IPv4 the host has
+# (LAN, Tailscale 100.x, VPN), re-derived at each config load.
+#
+# NOTES:
+#   - The expression is a single YAML scalar and must stay on one line.
+#   - `process.getBuiltinModule` requires Node >= 22.3.
+#   - The loader evaluates `!!js` inside `with (ctx)`, which can shadow plain
+#     globals, so every global is reached through `globalThis`.
+#   - MagicDNS hostnames are not discoverable this way. Add them with
+#     `--trusted-host <name>`, or by replacing this key with a literal list,
+#     when you browse by name rather than by IP.
+#
+# Remove this bundle to restore stock loopback-only behaviour.
 - id: webserver
-  config:
-    host: '0.0.0.0'
-    port: !!js ctx.webStartup.port ?? 3080
-    compression: gzip
-    compressionLevel: 1
-    compressionThresholdBytes: 1024
+  disabled: true
+
+- insert:
+    - id: lan-webserver
+      name: 'dsh-web-lan-access/webserver'
+      inject:
+        - webStartup
+      config:
+        host: '0.0.0.0'
+        port: !!js ctx.webStartup.port ?? 3080
+        tls: !!js ctx.webStartup.tls
+        compression: gzip
+        compressionLevel: 1
+        compressionThresholdBytes: 1024
 
 - id: connection
   config:
-    trustedHosts: !!js '[...(ctx.webRuntime?.trustedHosts ?? []), ...(() => { const os = globalThis.process?.getBuiltinModule?.("os"); return os ? globalThis.Object.values(os.networkInterfaces()).flat().filter(i => i && i.family === "IPv4" && !i.internal).map(i => i.address) : []; })()]'
+    trustedHosts: !!js '[...(() => { const os = globalThis.process?.getBuiltinModule?.("os"); return os ? globalThis.Object.values(os.networkInterfaces()).flat().filter(i => i && i.family === "IPv4" && !i.internal).map(i => i.address) : []; })()]'
 
 - insert:
     - id: lan-access
