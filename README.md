@@ -11,7 +11,8 @@ Bind every interface with one command, reach the GUI from a LAN IP, a Tailscale 
 
 | dsh | plugin | notes |
 |---|---|---|
-| **0.2.1-rc.2** | **1.4.x** | current; verified end to end |
+| **0.2.2-rc.1** | **1.4.x** | current; verified end to end |
+| 0.2.1-rc.x | 1.4.x | verified end to end |
 | 0.2.0-rc.x | 1.3.x | shipped webserver still accepted `0.0.0.0` |
 | ≤ 0.1.7 | 1.3.x | no wildcard ban yet |
 
